@@ -142,7 +142,18 @@ export class Game{
         }
         return imageUsingElements;
     }
-
+    getTargetMap(id, elements = this.elements, previousData = []) {
+        for (let i = 0; i < elements.length; i++) {
+            if (elements[i].idList.includes(id)) {
+                return [...previousData, i];
+            } else if (elements[i] instanceof itemHandler) {
+                const result = this.getTargetMap(id, elements[i].elements, [...previousData, i]);
+                if (result) return result;
+            }
+        }
+        return null; // Pas trouvé
+    }
+    
     addItem(item,targetMapList=null){
         this.orders.push(async()=>{
             if(item.spritesheet!=undefined){
@@ -165,6 +176,7 @@ export class Game{
     }
     removeItem(targetMapList){
         this.orders.push(async()=>{
+            console.log(this.getTargetMap("i"))
             for(let targetMap of targetMapList){
                 let targetedItemHandler=this;
                 for(let i of targetMap){
@@ -178,7 +190,7 @@ export class Game{
 }
 
 export class itemHandler{
-    constructor(elements,idList){
+    constructor(elements,idList=[]){
         this.elements=elements;
         this.idList=idList;
         this.isJustCreated=true;
@@ -203,7 +215,7 @@ export class itemHandler{
 }
 
 export class animatedImage{
-    constructor(spritesheet,x,y,imageCoords,imageCoordsIndex,animationSpeed,idList){
+    constructor(spritesheet,x,y,imageCoords,imageCoordsIndex,animationSpeed,idList=[]){
         this.spritesheet=spritesheet;
         this.x=x;
         this.y=y;

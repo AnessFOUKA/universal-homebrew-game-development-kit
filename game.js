@@ -8,7 +8,7 @@ document.body.appendChild(game.HTMLCanvas);
     await game.gameLoop();
     game.addItem(new UHGDK.itemHandler([],[]));
     game.addItem(new UHGDK.itemHandler([],[]),[[0]]);
-    game.addItem(new UHGDK.animatedImage("s.png",200,0,[[0,0,32,32]],0,0),[[0,0]]);
+    game.addItem(new UHGDK.animatedImage("s.png",200,0,[[0,0,32,32]],0,0,["i"]),[[0,0]]);
     game.addItem(new UHGDK.animatedImage("s.png",0,0,[[0,0,32,32]],0,0));
     game.removeItem([[0,0,0]])
 })()
