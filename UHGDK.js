@@ -88,19 +88,21 @@ export class memoryManager{
 }
 
 export class Game{
-    constructor(width,height,imageRendering,id=null){
+    constructor(width,height,imageRendering,usedKeys=[],HTMLId=null){
         this.HTMLCanvas=document.createElement("canvas");
         this.HTMLCanvas.width=width;
         this.HTMLCanvas.height=height;
         this.HTMLCanvas.style.imageRendering=imageRendering;
-        if(id!=null){
-            this.HTMLCanvas.id=id;
+        if(HTMLId!=null){
+            this.HTMLCanvas.id=HTMLId;
         }
         this.ctx=this.HTMLCanvas.getContext("2d");
         this.centralMemoryManager=new memoryManager();
         this.elements=[];
         this.orders=[];
-        this.inputManager=new inputManager(["ArrowLeft"]);
+        this.inputManager=new inputManager(usedKeys);
+        this.lastFrameTime = performance.now();
+        this.fps = 0;
     }
     async gameLoop(){
         await (async ()=>{
@@ -116,11 +118,15 @@ export class Game{
             }
         })()
         await (async ()=>{
+            const now = performance.now();
+            const delta = now - this.lastFrameTime;
+            this.fps = 1000 / delta;
+            this.lastFrameTime = now;
+
+            // Exemple d'affichage dans la console :
+            console.log(`FPS : ${this.fps.toFixed(2)}`);
             this.ctx.fillStyle="black";
             this.ctx.fillRect(0,0,this.HTMLCanvas.width,this.HTMLCanvas.height);
-            if(this.inputManager.checkClicked("ArrowLeft")){
-                console.log("testeefg")
-            }
             for(let i=0;i<this.elements.length;i++){
                 this.elements[i].arrayID=i;
                 if(this.elements[i].isJustCreated){
@@ -284,13 +290,15 @@ export class animatedImage{
 }
 
 export class gameEvent{
-    constructor(eventFunction,index,endIndex,eventSpeed,idList=[]){
+    constructor(eventFunction,index,endIndex,eventSpeed,loop=false,idList=[]){
         this.isJustCreated=true;
         this.eventFunction=eventFunction;
+        this.baseIdex=index;
         this.index=index;
         this.endIndex=endIndex;
         this.eventSpeed=eventSpeed;
         this.idList=idList;
+        this.loop=loop
     }
     create(){
         this.gameInstance=this.mother;
@@ -303,13 +311,10 @@ export class gameEvent{
             this.eventFunction(this);
             this.index+=this.eventSpeed;
         }else{
+            if(this.loop){
+                this.index=this.baseIdex;
+            }
             if((this.mother instanceof itemHandler || this.mother instanceof Game)&&this.mother.elements.some(a=>a===this)){
-                /*const targetMap=[];
-                let container=this;
-                while(!(container instanceof Game)){
-                    targetMap.push(container.arrayID);
-                    container=container.mother;
-                }*/
                 this.gameInstance.removeItem([this.gameInstance.getTargetMap(this)])
             }
         }
