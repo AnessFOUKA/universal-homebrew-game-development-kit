@@ -90,7 +90,7 @@ export class memoryManager{
 
 //verifié
 export class animatedImage{
-    constructor(spritesheet,x,y,imageCoords,imageCoordsIndex,animationSpeed,idList=[]){
+    constructor(spritesheet,x,y,imageCoords,imageCoordsIndex,animationSpeed,idList=[],eventIDs=[]){
         this.spritesheet=spritesheet;
         this.x=x;
         this.y=y;
@@ -99,14 +99,27 @@ export class animatedImage{
         this.animationSpeed=animationSpeed;
         this.idList=idList;
         this.isJustCreated=true;
+        this.eventIDs=eventIDs;
+        this.events=[];
     }
     create(){
         this.gameInstance=this.mother;
         while(!(this.gameInstance instanceof Game)){
             this.gameInstance=this.gameInstance.mother
         }
+        for(let i of this.eventIDs){
+            const assignedEvent=this.gameInstance.centralMemoryManager.getGenMemElement(i);
+            const addedEvent=new gameEvent(assignedEvent.eventFunction,assignedEvent.index,assignedEvent.endIndex,assignedEvent.eventSpeed,assignedEvent.loop,assignedEvent.idList);
+            addedEvent.gameInstance=this.gameInstance;
+            addedEvent.mother=this;
+            this.events.push(addedEvent);
+        }
     }
-    step(){}
+    step(){
+        for(let i of this.events){
+            i.step();
+        }
+    }
     draw(){
         if(this.imageCoordsIndex<this.imageCoords.length){
             this.gameInstance.ctx.drawImage(this.gameInstance.centralMemoryManager.getImg(this.spritesheet)[0],this.imageCoords[Math.floor(this.imageCoordsIndex)][0],this.imageCoords[Math.floor(this.imageCoordsIndex)][1],this.imageCoords[Math.floor(this.imageCoordsIndex)][2],this.imageCoords[Math.floor(this.imageCoordsIndex)][3],this.x,this.y,this.imageCoords[Math.floor(this.imageCoordsIndex)][2],this.imageCoords[Math.floor(this.imageCoordsIndex)][3])
@@ -119,15 +132,24 @@ export class animatedImage{
 
 //verifié
 export class itemHandler{
-    constructor(elements,idList=[]){
+    constructor(elements,idList=[],eventIDs=[]){
         this.elements=elements;
         this.idList=idList;
         this.isJustCreated=true;
+        this.eventIDs=eventIDs;
+        this.events=[];
     }
     create(){
         this.gameInstance=this.mother;
         while(!(this.gameInstance instanceof Game)){
             this.gameInstance=this.gameInstance.mother
+        }
+        for(let i of this.eventIDs){
+            const assignedEvent=this.gameInstance.centralMemoryManager.getGenMemElement(i);
+            const addedEvent=new gameEvent(assignedEvent.eventFunction,assignedEvent.index,assignedEvent.endIndex,assignedEvent.eventSpeed,assignedEvent.loop,assignedEvent.idList);
+            addedEvent.gameInstance=this.gameInstance;
+            addedEvent.mother=this;
+            this.events.push(addedEvent);
         }
     }
     step(){
@@ -143,10 +165,90 @@ export class itemHandler{
             element.draw();
             array+=1;
         }
+        for(let i of this.events){
+            i.step();
+        }
     }
     draw(){}
 }
-
+//vérifié
+export class gameEvent{
+    constructor(eventFunction,index,endIndex,eventSpeed,loop=false,idList=[]){
+        this.isJustCreated=true;
+        this.eventFunction=eventFunction;
+        this.baseIdex=index;
+        this.index=index;
+        this.endIndex=endIndex;
+        this.eventSpeed=eventSpeed;
+        this.idList=idList;
+        this.loop=loop
+    }
+    create(){
+        this.gameInstance=this.mother;
+        while(!(this.gameInstance instanceof Game)){
+            this.gameInstance=this.gameInstance.mother
+        }
+    }
+    step(){
+        if(this.index<this.endIndex){
+            this.eventFunction(this);
+            this.index+=this.eventSpeed;
+        }else{
+            if(this.loop){
+                this.index=this.baseIdex;
+            }
+            if(this.arrayID!=undefined){
+                this.gameInstance.removeItem(this.arrayID,this.mother)
+            }
+            
+            /*
+            if((this.mother instanceof itemHandler || this.mother instanceof Game)&&this.mother.elements.some(a=>a===this)){
+                this.gameInstance.removeItem([this.gameInstance.getTargetMap(this)])
+            }*/
+        }
+    }
+    draw(){}
+}
+//vérifié
+class inputManager{
+    constructor(keys=[]){
+        this.keys=this.setControls(keys);
+        this.pressable={};
+        for(let i in this.pressable){
+            this.pressable[i]=true
+        }
+    }
+    setControls(keysList){
+        const finalKeys={}
+        for(let i of keysList){
+            finalKeys[i]=false;
+            document.addEventListener("keydown",(event)=>{
+                if(event.key==i){
+                    finalKeys[i]=true;
+                }
+            })
+            document.addEventListener("keyup",(event)=>{
+                if(event.key==i){
+                    finalKeys[i]=false;
+                }
+            })
+        }
+        return finalKeys;
+    }
+    checkPressed(key){
+        return this.keys[key]
+    }
+    checkClicked(key){
+        const pressedKey=this.checkPressed(key);
+        if(pressedKey&&this.pressable[key]){
+            this.pressable[key]=false;
+            return true;
+        }
+        this.pressable[key]=!pressedKey;
+        return false;
+    }
+}
+//vérifié
 export class Game{
     constructor(width,height,imageRendering,keys=[],HTMLId=null){
         this.HTMLCanvas=document.createElement("canvas");
@@ -190,7 +292,6 @@ export class Game{
                 if(!Object.keys(this.centralMemoryManager.imgMem).includes(item.spritesheet))await this.centralMemoryManager.addImg(item.spritesheet);
                 const imgData=this.centralMemoryManager.getImg(item.spritesheet)
                 imgData[1]=imgData[1]+1;
-                console.log(imgData)
             });
         }
         container.elements.push(item)
@@ -228,82 +329,30 @@ export class Game{
             container.elements.splice(itemIndex,1);
         }
     }
+    getInstanceByID(id,container=this){
+        const returnedInstances=[];
+        for(let i of container.elements){
+            if(i.idList.includes(id)){
+                returnedInstances.push(i)
+            }else if(i instanceof itemHandler){
+                returnedInstances.push(...this.getInstanceByID(id,i))
+            }
+        }
+        return returnedInstances; 
+    }
+    getInstanceIndexByID(id,container=this){
+        const returnedIndexes=[];
+        for(let i=0;i<container.elements.length;i++){
+            if(container.elements[i].idList.includes(id)){
+                returnedIndexes.push(i);
+            }
+        }
+        return returnedIndexes; 
+    }
 }
 
-export class gameEvent{
-    constructor(eventFunction,index,endIndex,eventSpeed,loop=false,idList=[]){
-        this.isJustCreated=true;
-        this.eventFunction=eventFunction;
-        this.baseIdex=index;
-        this.index=index;
-        this.endIndex=endIndex;
-        this.eventSpeed=eventSpeed;
-        this.idList=idList;
-        this.loop=loop
-    }
-    create(){
-        this.gameInstance=this.mother;
-        while(!(this.gameInstance instanceof Game)){
-            this.gameInstance=this.gameInstance.mother
-        }
-    }
-    step(){
-        if(this.index<this.endIndex){
-            this.eventFunction(this);
-            this.index+=this.eventSpeed;
-        }else{
-            console.log(this.arrayID)
-            if(this.loop){
-                this.index=this.baseIdex;
-            }
-            if(this.arrayID!=undefined){
-                this.gameInstance.removeItem(this.arrayID,this.mother)
-            }
-            
-            /*
-            if((this.mother instanceof itemHandler || this.mother instanceof Game)&&this.mother.elements.some(a=>a===this)){
-                this.gameInstance.removeItem([this.gameInstance.getTargetMap(this)])
-            }*/
-        }
-    }
-    draw(){}
-}
-
-class inputManager{
-    constructor(keys=[]){
-        this.keys=this.setControls(keys);
-        this.pressable={};
-        for(let i in this.pressable){
-            this.pressable[i]=true
-        }
-    }
-    setControls(keysList){
-        const finalKeys={}
-        for(let i of keysList){
-            finalKeys[i]=false;
-            document.addEventListener("keydown",(event)=>{
-                if(event.key==i){
-                    finalKeys[i]=true;
-                }
-            })
-            document.addEventListener("keyup",(event)=>{
-                if(event.key==i){
-                    finalKeys[i]=false;
-                }
-            })
-        }
-        return finalKeys;
-    }
-    checkPressed(key){
-        return this.keys[key]
-    }
-    checkClicked(key){
-        const pressedKey=this.checkPressed(key);
-        if(pressedKey&&this.pressable[key]){
-            this.pressable[key]=false;
-            return true;
-        }
-        this.pressable[key]=!pressedKey;
-        return false;
-    }
-}
+/*
+future objectives: 
+    -create a function to access to an object and to modify it using one of its id s. --
+    -create a function to access to the arrayID of an object using one of its id s. --
+*/ 
