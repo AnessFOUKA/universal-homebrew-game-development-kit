@@ -1,3 +1,4 @@
+//verifié !
 export class memoryManager{
     constructor(){
         this.imgMem={};
@@ -14,10 +15,10 @@ export class memoryManager{
     async addImg(filename){
         try{
             await new Promise((resolve,reject)=>{
-                this.imgMem[filename]=new Image();
-                this.imgMem[filename].src=filename;
-                this.imgMem[filename].onload=()=>resolve();
-                this.imgMem[filename].onerror=()=>reject(`failed to load image ${filename}. please check if she's truly existing
+                this.imgMem[filename]=[new Image(),0];
+                this.imgMem[filename][0].src=filename;
+                this.imgMem[filename][0].onload=()=>resolve();
+                this.imgMem[filename][0].onerror=()=>reject(`failed to load image ${filename}. please check if she's truly existing
                     and if she's not corruped`);
             })
         }catch(error){
@@ -26,7 +27,7 @@ export class memoryManager{
     }
 
     removeImg(imgIndex){
-        this.imgMem[imgIndex].src="";
+        this.imgMem[imgIndex][0].src="";
         delete this.imgMem[imgIndex];
     }
 
@@ -87,170 +88,9 @@ export class memoryManager{
     }
 }
 
-export class Game{
-    constructor(width,height,imageRendering,usedKeys=[],HTMLId=null){
-        this.HTMLCanvas=document.createElement("canvas");
-        this.HTMLCanvas.width=width;
-        this.HTMLCanvas.height=height;
-        this.HTMLCanvas.style.imageRendering=imageRendering;
-        if(HTMLId!=null){
-            this.HTMLCanvas.id=HTMLId;
-        }
-        this.ctx=this.HTMLCanvas.getContext("2d");
-        this.centralMemoryManager=new memoryManager();
-        this.elements=[];
-        this.orders=[];
-        this.inputManager=new inputManager(usedKeys);
-        this.lastFrameTime = performance.now();
-        this.fps = 0;
-    }
-    async gameLoop(){
-        await (async ()=>{
-            this.orders.reverse();
-            for(let i=this.orders.length-1;i>=0;i--){
-                await this.orders[i]();
-                this.orders.splice(i,1);
-            }
-            for(let i in this.centralMemoryManager.imgMem){
-                if(this.checkIfImageUsed(i)==0){
-                    this.centralMemoryManager.removeImg(i)
-                }
-            }
-        })()
-        await (async ()=>{
-            const now = performance.now();
-            const delta = now - this.lastFrameTime;
-            this.fps = 1000 / delta;
-            this.lastFrameTime = now;
-
-            // Exemple d'affichage dans la console :
-            console.log(`FPS : ${this.fps.toFixed(2)}`);
-            this.ctx.fillStyle="black";
-            this.ctx.fillRect(0,0,this.HTMLCanvas.width,this.HTMLCanvas.height);
-            for(let i=0;i<this.elements.length;i++){
-                this.elements[i].arrayID=i;
-                if(this.elements[i].isJustCreated){
-                    this.elements[i].create();
-                    this.elements[i].isJustCreated=false;
-                }
-
-                this.elements[i].step();
-                this.elements[i].draw();
-            }
-            requestAnimationFrame(()=>this.gameLoop());
-        })();
-    }
-
-    getTargetMap(instance){
-        const targetMap=[]
-        let container=instance;
-        while(!(container instanceof Game)){
-            targetMap.push(container.arrayID);
-            container=container.mother;
-        }
-        return targetMap;
-    }
-
-    checkIfImageUsed(imgIndex,elements=this.elements){
-        let imageUsingElements=[];
-        for(let i of elements){
-            if(i instanceof itemHandler){
-                imageUsingElements.push(...this.checkIfImageUsed(imgIndex,i.elements))
-            }else{
-                if(i instanceof animatedImage&&i.spritesheet==imgIndex){
-                    imageUsingElements.push(i)
-                }
-            }
-        }
-        return imageUsingElements;
-    }
-    getTargetMapFromID(id,elements=this.elements,previousTargetMap=[]){
-        for(let i=0;i<elements.length;i++){
-            if(elements[i].idList.includes(id)){
-                return [...previousTargetMap,i]
-            }else if(elements[i] instanceof itemHandler){
-                const functionResponse=this.getTargetMapFromID(id,elements[i].elements,[...previousTargetMap,i])
-                if(functionResponse) return functionResponse
-            }
-        }
-        return null
-    }
-    
-    addItem(item,targetMapList=null){
-        this.orders.push(async()=>{
-            if(item.spritesheet!=undefined){
-                await this.centralMemoryManager.addImg(item.spritesheet);
-            }
-            item.mother=this
-            item.arrayID=this.elements.length
-            if(targetMapList!=null){
-                for(let targetMap of targetMapList){
-                    const finalTargetMap=typeof targetMap=="string"?this.getTargetMapFromID(targetMap):targetMap;
-                    let targetedItemHandler=this;
-                    for(let i of finalTargetMap){
-                        targetedItemHandler=targetedItemHandler.elements[i];
-                    }
-                    item.mother=targetedItemHandler
-                    targetedItemHandler.elements.push(item)
-                }
-            }else{
-                this.elements.push(item)
-            }
-        })
-    }
-    removeItem(targetMapList){
-        this.orders.push(async()=>{
-            for(let targetMap of targetMapList){
-                const finalTargetMap=typeof targetMap=="string"?this.getTargetMapFromID(targetMap):targetMap;
-                let targetedItemHandler=this;
-                for(let i of finalTargetMap){
-                    targetedItemHandler=targetedItemHandler.elements[i];
-                }
-                targetedItemHandler.mother.elements.splice(finalTargetMap[finalTargetMap.length-1],1)    
-            }
-        })
-    }
-}
-
-export class itemHandler{
-    constructor(elements,idList=[],gameEventsIDs=[]){
-        this.elements=elements;
-        this.idList=idList;
-        this.isJustCreated=true;
-        this.gameEventsIDs=gameEventsIDs;
-        this.events=[];
-    }
-    create(){
-        this.gameInstance=this.mother;
-        while(!(this.gameInstance instanceof Game)){
-            this.gameInstance=this.gameInstance.mother
-        }
-        for(let i of this.gameEventsIDs){
-            const gotEvent=this.gameInstance.centralMemoryManager.getGenMemElement(i);
-            const objectEvent=new gameEvent(gotEvent.eventFunction,gotEvent.index,gotEvent.endIndex,gotEvent.eventSpeed,gotEvent.idList)
-            objectEvent.mother=this;
-            this.events.push(objectEvent);
-        }
-    }
-    step(){
-        for(let i=0;i<this.elements.length;i++){
-            this.elements[i].arrayID=i;
-            if(this.elements[i].isJustCreated){
-                this.elements[i].create();
-                this.elements[i].isJustCreated=false;
-            }
-            this.elements[i].step();
-            this.elements[i].draw();
-        }
-        for(let i of this.events){
-            i.step();
-        }
-    }
-    draw(){}
-}
-
+//verifié
 export class animatedImage{
-    constructor(spritesheet,x,y,imageCoords,imageCoordsIndex,animationSpeed,idList=[],gameEventsIDs=[]){
+    constructor(spritesheet,x,y,imageCoords,imageCoordsIndex,animationSpeed,idList=[]){
         this.spritesheet=spritesheet;
         this.x=x;
         this.y=y;
@@ -259,32 +99,133 @@ export class animatedImage{
         this.animationSpeed=animationSpeed;
         this.idList=idList;
         this.isJustCreated=true;
-        this.gameEventsIDs=gameEventsIDs;
-        this.events=[];
     }
     create(){
         this.gameInstance=this.mother;
         while(!(this.gameInstance instanceof Game)){
             this.gameInstance=this.gameInstance.mother
         }
-        for(let i of this.gameEventsIDs){
-            const gotEvent=this.gameInstance.centralMemoryManager.getGenMemElement(i);
-            const objectEvent=new gameEvent(gotEvent.eventFunction,gotEvent.index,gotEvent.endIndex,gotEvent.eventSpeed,gotEvent.idList)
-            objectEvent.mother=this;
-            this.events.push(objectEvent);
-        }
     }
-    step(){
-        for(let i of this.events){
-            i.step();
-        }
-    }
+    step(){}
     draw(){
         if(this.imageCoordsIndex<this.imageCoords.length){
-            this.gameInstance.ctx.drawImage(this.gameInstance.centralMemoryManager.getImg(this.spritesheet),this.imageCoords[Math.floor(this.imageCoordsIndex)][0],this.imageCoords[Math.floor(this.imageCoordsIndex)][1],this.imageCoords[Math.floor(this.imageCoordsIndex)][2],this.imageCoords[Math.floor(this.imageCoordsIndex)][3],this.x,this.y,this.imageCoords[Math.floor(this.imageCoordsIndex)][2],this.imageCoords[Math.floor(this.imageCoordsIndex)][3])
+            this.gameInstance.ctx.drawImage(this.gameInstance.centralMemoryManager.getImg(this.spritesheet)[0],this.imageCoords[Math.floor(this.imageCoordsIndex)][0],this.imageCoords[Math.floor(this.imageCoordsIndex)][1],this.imageCoords[Math.floor(this.imageCoordsIndex)][2],this.imageCoords[Math.floor(this.imageCoordsIndex)][3],this.x,this.y,this.imageCoords[Math.floor(this.imageCoordsIndex)][2],this.imageCoords[Math.floor(this.imageCoordsIndex)][3])
             this.imageCoordsIndex+=this.animationSpeed;
         }else{
             this.imageCoordsIndex=0;
+        }
+    }
+}
+
+//verifié
+export class itemHandler{
+    constructor(elements,idList=[]){
+        this.elements=elements;
+        this.idList=idList;
+        this.isJustCreated=true;
+    }
+    create(){
+        this.gameInstance=this.mother;
+        while(!(this.gameInstance instanceof Game)){
+            this.gameInstance=this.gameInstance.mother
+        }
+    }
+    step(){
+        let array=0;
+        for(let element of this.elements){
+            element.mother=this;
+            element.arrayID=array;
+            if(element.isJustCreated){
+                element.create();
+                element.isJustCreated=false;
+            }
+            element.step();
+            element.draw();
+            array+=1;
+        }
+    }
+    draw(){}
+}
+
+export class Game{
+    constructor(width,height,imageRendering,keys=[],HTMLId=null){
+        this.HTMLCanvas=document.createElement("canvas");
+        this.HTMLCanvas.width=width;
+        this.HTMLCanvas.height=height;
+        this.HTMLCanvas.style.imageRendering=imageRendering;
+        this.ctx=this.HTMLCanvas.getContext("2d");
+        this.centralMemoryManager=new memoryManager();
+        if(HTMLId!=null){
+            this.HTMLCanvas.id=HTMLId;
+        }
+        this.elements=[];
+        this.gameDataPipeline=[];
+        this.keys=new inputManager(keys)
+    }
+    async gameLoop(){
+        while(this.gameDataPipeline.length>0){
+            await this.gameDataPipeline[0]();
+            this.gameDataPipeline.splice(0,1);
+        }
+        this.ctx.fillStyle="black";
+        this.ctx.fillRect(0,0,this.HTMLCanvas.width,this.HTMLCanvas.height);
+        let array=0;
+        for(let element of this.elements){
+            element.mother=this;
+            element.arrayID=array;
+            if(element.isJustCreated){
+                element.create();
+                element.isJustCreated=false;
+            }
+            element.step();
+            element.draw();
+            array+=1;
+        }
+
+        requestAnimationFrame(()=>this.gameLoop())
+    }
+    addItem(item,container=this){
+        if(item.spritesheet!=undefined){
+            this.gameDataPipeline.push(async ()=>{
+                if(!Object.keys(this.centralMemoryManager.imgMem).includes(item.spritesheet))await this.centralMemoryManager.addImg(item.spritesheet);
+                const imgData=this.centralMemoryManager.getImg(item.spritesheet)
+                imgData[1]=imgData[1]+1;
+                console.log(imgData)
+            });
+        }
+        container.elements.push(item)
+    }
+    flushContainer(container){
+        for(let i=container.elements.length-1;i>=0;i--){
+            if(container.elements[i] instanceof itemHandler){
+                this.flushContainer(container.elements[i])
+            }else if(container.elements[i] instanceof animatedImage){
+                const itemSpritesheet=container.elements[i].spritesheet;
+                container.elements.splice(i,1);
+                if(this.centralMemoryManager.getImg(itemSpritesheet)[1]==1){
+                    this.centralMemoryManager.removeImg(itemSpritesheet)
+                }else{
+                    this.centralMemoryManager.getImg(itemSpritesheet)[1]-=1;
+                }
+            }else{
+                container.elements.splice(i,1);
+            }
+        }
+    }
+    removeItem(itemIndex,container=this){
+        if(container.elements[itemIndex] instanceof animatedImage){
+            const itemSpritesheet=container.elements[itemIndex].spritesheet;
+            container.elements.splice(itemIndex,1);
+            if(this.centralMemoryManager.getImg(itemSpritesheet)[1]==1){
+                this.centralMemoryManager.removeImg(itemSpritesheet)
+            }else{
+                this.centralMemoryManager.getImg(itemSpritesheet)[1]-=1;
+            }
+        }else if(container.elements[itemIndex] instanceof itemHandler){
+            this.flushContainer(container)
+            container.elements.splice(itemIndex,1);
+        }else{
+            container.elements.splice(itemIndex,1);
         }
     }
 }
@@ -311,12 +252,18 @@ export class gameEvent{
             this.eventFunction(this);
             this.index+=this.eventSpeed;
         }else{
+            console.log(this.arrayID)
             if(this.loop){
                 this.index=this.baseIdex;
             }
+            if(this.arrayID!=undefined){
+                this.gameInstance.removeItem(this.arrayID,this.mother)
+            }
+            
+            /*
             if((this.mother instanceof itemHandler || this.mother instanceof Game)&&this.mother.elements.some(a=>a===this)){
                 this.gameInstance.removeItem([this.gameInstance.getTargetMap(this)])
-            }
+            }*/
         }
     }
     draw(){}
