@@ -273,6 +273,13 @@ export class Game{
         this.ctx.fillRect(0,0,this.HTMLCanvas.width,this.HTMLCanvas.height);
         let array=0;
         for(let element of this.elements){
+            /*
+            for(let i of [["ArrowLeft",-5,0],["ArrowRight",5,0],["ArrowUp",0,-5],["ArrowDown",0,5]]){
+                if(this.keys.checkPressed(i[0])){
+                    element.x+=i[1];
+                    element.y+=i[2];
+                }
+            }*/
             element.mother=this;
             element.arrayID=array;
             if(element.isJustCreated){
@@ -317,11 +324,12 @@ export class Game{
         if(container.elements[itemIndex] instanceof animatedImage){
             const itemSpritesheet=container.elements[itemIndex].spritesheet;
             container.elements.splice(itemIndex,1);
+            this.gameDataPipeline.push(async ()=>{
             if(this.centralMemoryManager.getImg(itemSpritesheet)[1]==1){
                 this.centralMemoryManager.removeImg(itemSpritesheet)
             }else{
                 this.centralMemoryManager.getImg(itemSpritesheet)[1]-=1;
-            }
+            }})
         }else if(container.elements[itemIndex] instanceof itemHandler){
             this.flushContainer(container)
             container.elements.splice(itemIndex,1);
