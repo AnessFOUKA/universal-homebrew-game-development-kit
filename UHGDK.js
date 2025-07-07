@@ -1,3 +1,7 @@
+export function detectInbound(element,x,y,width,height){
+    //return((element.x>=x&&element.x<=x+width)||(element.x+element.width>=x&&element.x+element.width<=x+width)||(element.x<x&&element.x+element.width))&&()
+}
+
 //verifié !
 export class memoryManager{
     constructor(){
@@ -120,9 +124,14 @@ export class animatedImage{
             i.step();
         }
     }
-    draw(){
+    draw(x=this.x,y=this.y,width=this.imageCoords[Math.floor(this.imageCoordsIndex)][2],height=this.imageCoords[Math.floor(this.imageCoordsIndex)][3],sx=this.imageCoords[Math.floor(this.imageCoordsIndex)][0],sy=this.imageCoords[Math.floor(this.imageCoordsIndex)][1]){
         if(this.imageCoordsIndex<this.imageCoords.length){
-            this.gameInstance.ctx.drawImage(this.gameInstance.centralMemoryManager.getImg(this.spritesheet)[0],this.imageCoords[Math.floor(this.imageCoordsIndex)][0],this.imageCoords[Math.floor(this.imageCoordsIndex)][1],this.imageCoords[Math.floor(this.imageCoordsIndex)][2],this.imageCoords[Math.floor(this.imageCoordsIndex)][3],this.x,this.y,this.imageCoords[Math.floor(this.imageCoordsIndex)][2],this.imageCoords[Math.floor(this.imageCoordsIndex)][3])
+            let imageX=sx
+            let imageY=sy
+            let imageWidth=width
+            let imageHeigth=height
+
+            this.gameInstance.ctx.drawImage(this.gameInstance.centralMemoryManager.getImg(this.spritesheet)[0],imageX,imageY,imageWidth,imageHeigth,x,y,imageWidth,imageHeigth)
             this.imageCoordsIndex+=this.animationSpeed;
         }else{
             this.imageCoordsIndex=0;
@@ -138,6 +147,7 @@ export class itemHandler{
         this.isJustCreated=true;
         this.eventIDs=eventIDs;
         this.events=[];
+        this.autodraw=true;
     }
     create(){
         this.gameInstance=this.mother;
@@ -162,7 +172,7 @@ export class itemHandler{
                 element.isJustCreated=false;
             }
             element.step();
-            element.draw();
+            if(this.autodraw)element.draw();
             array+=1;
         }
         for(let i of this.events){
@@ -248,6 +258,62 @@ class inputManager{
         return false;
     }
 }
+
+export class Camera {
+    constructor(renderX, renderY, cameraX, cameraY, width, height, linkedItemHandler) {
+        this.renderX = renderX;
+        this.renderY = renderY;
+        this.cameraX = cameraX;
+        this.cameraY = cameraY;
+        this.width = width;
+        this.height = height;
+        this.linkedItemHandler = linkedItemHandler;
+    }
+
+    showZone() {
+        for (let i of this.linkedItemHandler.elements) {
+            let imageX = i.imageCoords[Math.floor(i.imageCoordsIndex)][0];
+            let imageY = i.imageCoords[Math.floor(i.imageCoordsIndex)][1];
+            let imageWidth = i.imageCoords[Math.floor(i.imageCoordsIndex)][2];
+            let imageHeight = i.imageCoords[Math.floor(i.imageCoordsIndex)][3];
+
+            let worldX = i.x;
+            let worldY = i.y;
+
+            let cropLeft = 0;
+            let cropTop = 0;
+
+            if (worldX < this.cameraX) {
+                cropLeft = this.cameraX - worldX;
+                imageX += cropLeft;
+                imageWidth -= cropLeft;
+                worldX = this.cameraX; 
+            }
+
+            if (worldY < this.cameraY) {
+                cropTop = this.cameraY - worldY;
+                imageY += cropTop;
+                imageHeight -= cropTop;
+                worldY = this.cameraY; 
+            }
+
+            if (worldX + imageWidth > this.cameraX + this.width) {
+                const overflow = (worldX + imageWidth) - (this.cameraX + this.width);
+                imageWidth -= overflow;
+            }
+
+            if (worldY + imageHeight > this.cameraY + this.height) {
+                const overflow = (worldY + imageHeight) - (this.cameraX + this.height);
+                imageHeight -= overflow;
+            }
+
+            const destX = worldX - this.cameraX + this.renderX;
+            const destY = worldY - this.cameraY + this.renderY;
+
+            i.draw(destX, destY, imageWidth, imageHeight, imageX, imageY);
+        }
+    }
+}
 //vérifié
 export class Game{
     constructor(width,height,imageRendering,keys=[],HTMLId=null){
@@ -263,6 +329,7 @@ export class Game{
         this.elements=[];
         this.gameDataPipeline=[];
         this.keys=new inputManager(keys)
+        this.autodraw=true;
     }
     async gameLoop(){
         while(this.gameDataPipeline.length>0){
@@ -287,7 +354,7 @@ export class Game{
                 element.isJustCreated=false;
             }
             element.step();
-            element.draw();
+            if(this.autodraw)element.draw();
             array+=1;
         }
 
