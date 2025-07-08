@@ -1,5 +1,10 @@
-export function detectInbound(element,x,y,width,height){
-    //return((element.x>=x&&element.x<=x+width)||(element.x+element.width>=x&&element.x+element.width<=x+width)||(element.x<x&&element.x+element.width))&&()
+export function detectInbound(element, x, y, width, height) {
+    return (
+        element.x <= x + width &&
+        element.x + element.imageCoords[Math.floor(element.imageCoordsIndex)][2] >= x &&
+        element.y <= y + height &&
+        element.y + element.imageCoords[Math.floor(element.imageCoordsIndex)][3] >= y
+    );
 }
 
 //verifié !
@@ -172,7 +177,7 @@ export class itemHandler{
                 element.isJustCreated=false;
             }
             element.step();
-            if(this.autodraw)element.draw();
+            if(detectInbound(element,0,0,this.gameInstance.HTMLCanvas.width,this.gameInstance.HTMLCanvas.height)&&this.autodraw)element.draw();
             array+=1;
         }
         for(let i of this.events){
@@ -272,45 +277,47 @@ export class Camera {
 
     showZone() {
         for (let i of this.linkedItemHandler.elements) {
-            let imageX = i.imageCoords[Math.floor(i.imageCoordsIndex)][0];
-            let imageY = i.imageCoords[Math.floor(i.imageCoordsIndex)][1];
-            let imageWidth = i.imageCoords[Math.floor(i.imageCoordsIndex)][2];
-            let imageHeight = i.imageCoords[Math.floor(i.imageCoordsIndex)][3];
+            if(detectInbound(i,this.cameraX,this.cameraY,this.width,this.height)){
+                let imageX = i.imageCoords[Math.floor(i.imageCoordsIndex)][0];
+                let imageY = i.imageCoords[Math.floor(i.imageCoordsIndex)][1];
+                let imageWidth = i.imageCoords[Math.floor(i.imageCoordsIndex)][2];
+                let imageHeight = i.imageCoords[Math.floor(i.imageCoordsIndex)][3];
 
-            let worldX = i.x;
-            let worldY = i.y;
+                let worldX = i.x;
+                let worldY = i.y;
 
-            let cropLeft = 0;
-            let cropTop = 0;
+                let cropLeft = 0;
+                let cropTop = 0;
 
-            if (worldX < this.cameraX) {
-                cropLeft = this.cameraX - worldX;
-                imageX += cropLeft;
-                imageWidth -= cropLeft;
-                worldX = this.cameraX; 
+                if (worldX < this.cameraX) {
+                    cropLeft = this.cameraX - worldX;
+                    imageX += cropLeft;
+                    imageWidth -= cropLeft;
+                    worldX = this.cameraX; 
+                }
+
+                if (worldY < this.cameraY) {
+                    cropTop = this.cameraY - worldY;
+                    imageY += cropTop;
+                    imageHeight -= cropTop;
+                    worldY = this.cameraY; 
+                }
+
+                if (worldX + imageWidth > this.cameraX + this.width) {
+                    const overflow = (worldX + imageWidth) - (this.cameraX + this.width);
+                    imageWidth -= overflow;
+                }
+
+                if (worldY + imageHeight > this.cameraY + this.height) {
+                    const overflow = (worldY + imageHeight) - (this.cameraX + this.height);
+                    imageHeight -= overflow;
+                }
+
+                const destX = worldX - this.cameraX + this.renderX;
+                const destY = worldY - this.cameraY + this.renderY;
+
+                i.draw(destX, destY, imageWidth, imageHeight, imageX, imageY);
             }
-
-            if (worldY < this.cameraY) {
-                cropTop = this.cameraY - worldY;
-                imageY += cropTop;
-                imageHeight -= cropTop;
-                worldY = this.cameraY; 
-            }
-
-            if (worldX + imageWidth > this.cameraX + this.width) {
-                const overflow = (worldX + imageWidth) - (this.cameraX + this.width);
-                imageWidth -= overflow;
-            }
-
-            if (worldY + imageHeight > this.cameraY + this.height) {
-                const overflow = (worldY + imageHeight) - (this.cameraX + this.height);
-                imageHeight -= overflow;
-            }
-
-            const destX = worldX - this.cameraX + this.renderX;
-            const destY = worldY - this.cameraY + this.renderY;
-
-            i.draw(destX, destY, imageWidth, imageHeight, imageX, imageY);
         }
     }
 }
@@ -354,7 +361,7 @@ export class Game{
                 element.isJustCreated=false;
             }
             element.step();
-            if(this.autodraw)element.draw();
+            if(detectInbound(element,0,0,this.HTMLCanvas.width,this.HTMLCanvas.height)&&this.autodraw)element.draw();
             array+=1;
         }
 
