@@ -1,6 +1,6 @@
 import * as UHGDK from "./UHGDK.js";
 (async()=>{
-    const game=new UHGDK.Game(960,540,"pixelated",["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","x"],"gameCanvas");
+    const game=new UHGDK.Game(960,540,"pixelated",["ArrowLeft","ArrowRight","ArrowUp","ArrowDown","x"],true,"gameCanvas");
     game.centralMemoryManager.addGenMemElement("commander",new UHGDK.gameEvent((eventvar)=>{
         eventvar.mother.moving=false;
         if(game.keys.checkClicked("x")){

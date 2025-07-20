@@ -1,9 +1,9 @@
 export function detectInbound(element, x, y, width, height) {
     return (
-        element.x <= x + width &&
-        element.x + element.imageCoords[Math.floor(element.imageCoordsIndex)][2] >= x &&
-        element.y <= y + height &&
-        element.y + element.imageCoords[Math.floor(element.imageCoordsIndex)][3] >= y
+        element.x < x + width &&
+        element.x + element.imageCoords[Math.floor(element.imageCoordsIndex)][2] > x &&
+        element.y < y + height &&
+        element.y + element.imageCoords[Math.floor(element.imageCoordsIndex)][3] > y
     );
 }
 
@@ -112,16 +112,14 @@ export class animatedImage{
         this.events=[];
     }
     create(){
-        this.gameInstance=this.mother;
-        while(!(this.gameInstance instanceof Game)){
-            this.gameInstance=this.gameInstance.mother
-        }
-        for(let i of this.eventIDs){
-            const assignedEvent=this.gameInstance.centralMemoryManager.getGenMemElement(i);
-            const addedEvent=new gameEvent(assignedEvent.eventFunction,assignedEvent.index,assignedEvent.endIndex,assignedEvent.eventSpeed,assignedEvent.loop,assignedEvent.idList);
-            addedEvent.gameInstance=this.gameInstance;
-            addedEvent.mother=this;
-            this.events.push(addedEvent);
+        if(!this.debug){
+            for(let i of this.eventIDs){
+                const assignedEvent=this.gameInstance.centralMemoryManager.getGenMemElement(i);
+                const addedEvent=new gameEvent(assignedEvent.eventFunction,assignedEvent.index,assignedEvent.endIndex,assignedEvent.eventSpeed,assignedEvent.loop,assignedEvent.idList);
+                addedEvent.gameInstance=this.gameInstance;
+                addedEvent.mother=this;
+                this.events.push(addedEvent);
+            }
         }
     }
     step(){
@@ -155,22 +153,19 @@ export class itemHandler{
         this.autodraw=true;
     }
     create(){
-        this.gameInstance=this.mother;
-        while(!(this.gameInstance instanceof Game)){
-            this.gameInstance=this.gameInstance.mother
-        }
-        for(let i of this.eventIDs){
-            const assignedEvent=this.gameInstance.centralMemoryManager.getGenMemElement(i);
-            const addedEvent=new gameEvent(assignedEvent.eventFunction,assignedEvent.index,assignedEvent.endIndex,assignedEvent.eventSpeed,assignedEvent.loop,assignedEvent.idList);
-            addedEvent.gameInstance=this.gameInstance;
-            addedEvent.mother=this;
-            this.events.push(addedEvent);
+        if(!this.debug){
+            for(let i of this.eventIDs){
+                const assignedEvent=this.gameInstance.centralMemoryManager.getGenMemElement(i);
+                const addedEvent=new gameEvent(assignedEvent.eventFunction,assignedEvent.index,assignedEvent.endIndex,assignedEvent.eventSpeed,assignedEvent.loop,assignedEvent.idList);
+                addedEvent.gameInstance=this.gameInstance;
+                addedEvent.mother=this;
+                this.events.push(addedEvent);
+            }
         }
     }
     step(){
         let array=0;
         for(let element of this.elements){
-            element.mother=this;
             element.arrayID=array;
             if(element.isJustCreated){
                 element.create();
@@ -199,10 +194,6 @@ export class gameEvent{
         this.loop=loop
     }
     create(){
-        this.gameInstance=this.mother;
-        while(!(this.gameInstance instanceof Game)){
-            this.gameInstance=this.gameInstance.mother
-        }
     }
     step(){
         if(this.index<this.endIndex){
@@ -275,52 +266,61 @@ export class Camera {
         this.linkedItemHandler = linkedItemHandler;
     }
 
-    showZone() {
-        for (let i of this.linkedItemHandler.elements) {
-            if(detectInbound(i,this.cameraX,this.cameraY,this.width,this.height)){ 
-                let imageX = i.imageCoords[Math.floor(i.imageCoordsIndex)][0];
-                let imageY = i.imageCoords[Math.floor(i.imageCoordsIndex)][1];
-                let imageWidth = i.imageCoords[Math.floor(i.imageCoordsIndex)][2];
-                let imageHeight = i.imageCoords[Math.floor(i.imageCoordsIndex)][3];
+    showItem(i){
+        if(detectInbound(i,this.cameraX,this.cameraY,this.width,this.height)){ 
+                    let imageX = i.imageCoords[Math.floor(i.imageCoordsIndex)][0];
+                    let imageY = i.imageCoords[Math.floor(i.imageCoordsIndex)][1];
+                    let imageWidth = i.imageCoords[Math.floor(i.imageCoordsIndex)][2];
+                    let imageHeight = i.imageCoords[Math.floor(i.imageCoordsIndex)][3];
 
-                let worldX = i.x;
-                let worldY = i.y;
+                    let worldX = i.x;
+                    let worldY = i.y;
 
-                let cropLeft = 0;
-                let cropTop = 0;
+                    let cropLeft = 0;
+                    let cropTop = 0;
 
-                if (worldX < this.cameraX) {
-                    cropLeft = this.cameraX - worldX;
-                    imageX += cropLeft;
-                    imageWidth -= cropLeft;
-                    worldX = this.cameraX; 
+                    if (worldX < this.cameraX) {
+                        cropLeft = this.cameraX - worldX;
+                        imageX += cropLeft;
+                        imageWidth -= cropLeft;
+                        worldX = this.cameraX; 
+                    }
+
+                    if (worldY < this.cameraY) {
+                        cropTop = this.cameraY - worldY;
+                        imageY += cropTop;
+                        imageHeight -= cropTop;
+                        worldY = this.cameraY; 
+                    }
+
+                    if (worldX + imageWidth > this.cameraX + this.width) {
+                        const overflow = (worldX + imageWidth) - (this.cameraX + this.width);
+                        imageWidth -= overflow;
+                    }
+
+                    if (worldY + imageHeight > this.cameraY + this.height) {
+                        const overflow = (worldY + imageHeight) - (this.cameraX + this.height);
+                        imageHeight -= overflow;
+                    }
+
+                    const destX = worldX - this.cameraX + this.renderX;
+                    const destY = worldY - this.cameraY + this.renderY;
+
+                    i.draw(destX, destY, imageWidth, imageHeight, imageX, imageY);
                 }
+    }
 
-                if (worldY < this.cameraY) {
-                    cropTop = this.cameraY - worldY;
-                    imageY += cropTop;
-                    imageHeight -= cropTop;
-                    worldY = this.cameraY; 
-                }
-
-                if (worldX + imageWidth > this.cameraX + this.width) {
-                    const overflow = (worldX + imageWidth) - (this.cameraX + this.width);
-                    imageWidth -= overflow;
-                }
-
-                if (worldY + imageHeight > this.cameraY + this.height) {
-                    const overflow = (worldY + imageHeight) - (this.cameraX + this.height);
-                    imageHeight -= overflow;
-                }
-
-                const destX = worldX - this.cameraX + this.renderX;
-                const destY = worldY - this.cameraY + this.renderY;
-
-                i.draw(destX, destY, imageWidth, imageHeight, imageX, imageY);
+    showZone(linkedItemHandler1=this.linkedItemHandler) {
+        for (let i of linkedItemHandler1.elements) {
+            if(i instanceof animatedImage){
+                this.showItem(i)
+            }else if(i instanceof itemHandler){
+                this.showZone(i);
             }
         }
     }
 }
+
 //vérifié
 export class Game{
     constructor(width,height,imageRendering,keys=[],HTMLResponsive=false,HTMLId=null){
@@ -360,7 +360,6 @@ export class Game{
                     element.y+=i[2];
                 }
             }*/
-            element.mother=this;
             element.arrayID=array;
             if(element.isJustCreated){
                 element.create();
@@ -380,6 +379,11 @@ export class Game{
                 const imgData=this.centralMemoryManager.getImg(item.spritesheet)
                 imgData[1]=imgData[1]+1;
             });
+        }
+        item.mother=container;
+        item.gameInstance=item.mother;
+        while(!(item.gameInstance instanceof Game)){
+            item.gameInstance=item.gameInstance.mother
         }
         container.elements.push(item)
     }
